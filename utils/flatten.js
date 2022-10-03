@@ -5,7 +5,9 @@ export function flatten(arr, parentref) {
           ...result,
           {
             name: item.name,
-            id: item.id,
+            description: item.description,
+            product: item.product,
+            baseDataLevel: item.baseDataLevel,
             hierarchy: parentref ? [...parentref, item.name] : [item.name],
           },
           ...flatten(

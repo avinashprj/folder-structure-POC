@@ -6,59 +6,62 @@ import { AgGridReact } from "ag-grid-react";
 import defaultColumnDef from "./../components/defaultColumnDef";
 import { sideBar } from "./../components/Sidebar";
 import { flatten } from "../utils/flatten";
-// const rowData = [
-//   {
-//     folderName: "main",
-//     jobTitle: "CEO",
-//     employmentType: "Permanent",
-//     jobType: "WFO",
-//     children: [
-//       {
-//         dataset: "sub",
-//         jobTitle: "VP",
-//         employmentType: "Permanent",
-//         jobType: "WFO",
-//       },
-//     ],
-//   },
-// ];
+const data = [
+  {
+    name: "main",
+    description: "NA",
+    product: "NA",
+    baseDataLevel: "Personal Account",
+    children: [
+      {
+        name: "sub",
+        description: "news data",
+        product: "NA",
+        baseDataLevel: "Personal Account",
+      },
+    ],
+  },
+];
 
 export default function Home() {
-  const [rowData, setRowData] = useState([
-    {
-      hierarchy: ["folderName"],
-      description: "NA",
-      product: "NA",
-      baseDataLevel: "Personal Account",
-    },
-    {
-      hierarchy: ["folderName", "datasetName"],
-      description: "news data",
-      product: "NA",
-      baseDataLevel: "Personal Account",
-    },
-  ]);
-
+  const [rowData, setRowData] = useState(() => flatten(data));
   const [tags, setTags] = useState([]);
   const [show, setShow] = useState(false);
 
   const submitButtonHandler = () => {
     setShowFolder(!showfolder);
-    const replace = {
-      folderName: formik.values.folderName,
-      datasetName: formik.values.datasetName,
-    };
-    const clone = structuredClone(rowData);
-    const newData = clone.map((data) => {
-      data.description = formik.values.description;
-      data.product = formik.values.product || "NA";
-      data.baseDataLevel = formik.values.baseDataLevel || "NA";
-      data.hierarchy = data.hierarchy.map((o) => {
-        return replace[o];
-      });
-      return data;
-    });
-    setRowData(() => newData);
+    // const replace = {
+    //   folderName: formik.values.folderName,
+    //   datasetName: formik.values.datasetName,
+    // };
+    // const clone = structuredClone(rowData);
+    // const newData = clone.map((data) => {
+    //   data.description = formik.values.description;
+    //   data.product = formik.values.product || "NA";
+    //   data.baseDataLevel = formik.values.baseDataLevel || "NA";
+    //   data.hierarchy = data.hierarchy.map((o) => {
+    //     return replace[o];
+    //   });
+    //   return data;
+    // });
+    // setRowData(() => newData);
+    const newData = [
+      {
+        name: formik.values.folderName,
+        description: formik.values.description || "NA",
+        product: formik.values.product || "NA",
+        baseDataLevel: formik.values.baseDataLevel || "NA",
+        children: [
+          {
+            name: formik.values.datasetName,
+            description: formik.values.description || "NA",
+            product: formik.values.product || "NA",
+            baseDataLevel: formik.values.baseDataLevel || "NA",
+          },
+        ],
+      },
+    ];
+    setRowData(flatten(newData));
   };
 
   const formik = useFormik({
