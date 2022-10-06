@@ -1,30 +1,99 @@
 import { useFormik } from "formik";
 import Head from "next/head";
 import * as Yup from "yup";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { AgGridReact } from "ag-grid-react";
 import defaultColumnDef from "./../components/defaultColumnDef";
 import { sideBar } from "./../components/Sidebar";
 import { flatten } from "../utils/flatten";
-const data = [
-  {
-    name: "main",
-    description: "NA",
-    product: "NA",
-    baseDataLevel: "Personal Account",
-    children: [
-      {
-        name: "sub",
-        description: "news data",
-        product: "NA",
-        baseDataLevel: "Personal Account",
-      },
-    ],
+import { data } from "./../utils/data";
+const cellClassRules = {
+  "hover-over": (params) => {
+    return params.node === potentialParent;
   },
-];
+};
+const potentialParent = null;
+const moveToPath = (newParentPath, node, allUpdatedNodes) => {
+  // last part of the file path is the file name
+  const oldPath = node.data.hierarchy;
+  const fileName = oldPath[oldPath.length - 1];
+  const newChildPath = newParentPath.slice();
+  newChildPath.push(fileName);
+  node.data.hierarchy = newChildPath;
+  allUpdatedNodes.push(node.data);
+  if (node.childrenAfterGroup) {
+    node.childrenAfterGroup.forEach(function (childNode) {
+      moveToPath(newChildPath, childNode, allUpdatedNodes);
+    });
+  }
+};
+const isSelectionParentOfTarget = (selectedNode, targetNode) => {
+  const children = selectedNode.childrenAfterGroup || [];
+  for (let i = 0; i < children.length; i++) {
+    if (targetNode && children[i].key === targetNode.key) return true;
+    isSelectionParentOfTarget(children[i], targetNode);
+  }
+  return false;
+};
+
+const arePathsEqual = (path1, path2) => {
+  if (path1.length !== path2.length) {
+    return false;
+  }
+  const equal = true;
+  path1.forEach(function (item, index) {
+    if (path2[index] !== item) {
+      equal = false;
+    }
+  });
+  return equal;
+};
+
+const setPotentialParentForNode = (api, overNode) => {
+  let newPotentialParent;
+  if (overNode) {
+    newPotentialParent =
+      overNode.data.type === "folder"
+        ? // if over a folder, we take the immediate row
+          overNode
+        : // if over a file, we take the parent row (which will be a folder)
+          overNode.parent;
+  } else {
+    newPotentialParent = null;
+  }
+  const alreadySelected = potentialParent === newPotentialParent;
+  if (alreadySelected) {
+    return;
+  }
+  // we refresh the previous selection (if it exists) to clear
+  // the highlighted and then the new selection.
+  const rowsToRefresh = [];
+  if (potentialParent) {
+    rowsToRefresh.push(potentialParent);
+  }
+  if (newPotentialParent) {
+    rowsToRefresh.push(newPotentialParent);
+  }
+  potentialParent = newPotentialParent;
+  refreshRows(api, rowsToRefresh);
+};
+
+const refreshRows = (api, rowsToRefresh) => {
+  const params = {
+    // refresh these rows only.
+    rowNodes: rowsToRefresh,
+    // because the grid does change detection, the refresh
+    // will not happen because the underlying value has not
+    // changed. to get around this, we force the refresh,
+    // which skips change detection.
+    force: true,
+  };
+  api.refreshCells(params);
+};
 
 export default function Home() {
-  const [rowData, setRowData] = useState(() => flatten(data));
+  const gridRef = useRef();
+  const [rowData, setRowData] = useState(() => data);
   const [tags, setTags] = useState([]);
   const [show, setShow] = useState(false);
 
@@ -45,23 +114,36 @@ export default function Home() {
     //   return data;
     // });
     // setRowData(() => newData);
+    // const newData = [
+    //   {
+    //     name: formik.values.folderName,
+    //     description: formik.values.description || "NA",
+    //     product: formik.values.product || "NA",
+    //     baseDataLevel: formik.values.baseDataLevel || "NA",
+    //     children: [
+    //       {
+    //         name: formik.values.datasetName,
+    //         description: formik.values.description || "NA",
+    //         product: formik.values.product || "NA",
+    //         baseDataLevel: formik.values.baseDataLevel || "NA",
+    //       },
+    //     ],
+    //   },
+    // ];
     const newData = [
+      { id: 100, hierarchy: [formik.values.folderName], type: "folder" },
       {
-        name: formik.values.folderName,
-        description: formik.values.description || "NA",
-        product: formik.values.product || "NA",
-        baseDataLevel: formik.values.baseDataLevel || "NA",
-        children: [
-          {
-            name: formik.values.datasetName,
-            description: formik.values.description || "NA",
-            product: formik.values.product || "NA",
-            baseDataLevel: formik.values.baseDataLevel || "NA",
-          },
-        ],
+        id: 101,
+        hierarchy: [formik.values.folderName, formik.values.datasetName],
+        type: "file",
+        dateModified: "May 21 2017 01:50:00 PM",
+        size: 14.7,
       },
     ];
-    setRowData(flatten(newData));
+
+    setRowData((prev) => {
+      return [...newData, ...prev];
+    });
   };
 
   const formik = useFormik({
@@ -140,16 +222,68 @@ export default function Home() {
 
   const [columnDefs, setColumnDefs] = useState([
     // we're using the auto group column by default!
-    { field: "description" },
-    { field: "product" },
-    { field: "baseDataLevel" },
+    { field: "description", cellClassRules: cellClassRules },
+    { field: "product", cellClassRules: cellClassRules },
+    { field: "baseDataLevel", cellClassRules: cellClassRules },
   ]);
   const autoGroupColumnDef = {
     headerName: "Folder Name",
+    rowDrag: true,
     cellRendererParams: {
       suppressCount: true,
     },
+    cellClassRules: {
+      "hover-over": (params) => {
+        return params.node === potentialParent;
+      },
+    },
   };
+
+  const onRowDragMove = useCallback((event) => {
+    setPotentialParentForNode(event.api, event.overNode);
+  }, []);
+
+  const onRowDragLeave = useCallback((event) => {
+    // clear node to highlight
+    setPotentialParentForNode(event.api, null);
+  }, []);
+
+  const onRowDragEnd = useCallback(
+    (event) => {
+      if (!potentialParent) {
+        return;
+      }
+      const movingData = event.node.data;
+      // take new parent path from parent, if data is missing, means it's the root node,
+      // which has no data.
+      const newParentPath = potentialParent.data
+        ? potentialParent.data.hierarchy
+        : [];
+      const needToChangeParent = !arePathsEqual(
+        newParentPath,
+        movingData.hierarchy
+      );
+      // check we are not moving a folder into a child folder
+      const invalidMode = isSelectionParentOfTarget(
+        event.node,
+        potentialParent
+      );
+      if (invalidMode) {
+        console.log("invalid move");
+      }
+      if (needToChangeParent && !invalidMode) {
+        const updatedRows = [];
+        moveToPath(newParentPath, event.node, updatedRows);
+        gridRef.current.api.applyTransaction({
+          update: updatedRows,
+        });
+        gridRef.current.api.clearFocusedCell();
+      }
+      // clear node to highlight
+      setPotentialParentForNode(event.api, null);
+    },
+    [potentialParent]
+  );
   const getDataPath = useMemo(() => {
     return (data) => {
       return data.hierarchy;
@@ -159,6 +293,9 @@ export default function Home() {
   const treeData = true;
   const onGridReady = (params) => {
     setGridApi(params.api);
+  };
+  const onRowClicked = (params) => {
+    console.log(params);
   };
 
   // for aggrid ::
@@ -382,6 +519,7 @@ export default function Home() {
                 <div style={{ width: "100%", height: "100%" }}>
                   <div style={{ height: 400 }} className="ag-theme-alpine">
                     <AgGridReact
+                      ref={gridRef}
                       treeData={treeData}
                       enableCharts={true}
                       enableRangeSelection={true}
@@ -392,11 +530,16 @@ export default function Home() {
                       rowSelection={"multiple"}
                       suppressRowClickSelection={true}
                       singleClickEdit={true}
+                      groupDefaultExpanded={-1}
                       pagination={true}
                       paginationPageSize={20}
                       onGridReady={onGridReady}
                       getDataPath={getDataPath}
                       autoGroupColumnDef={autoGroupColumnDef}
+                      onRowClicked={onRowClicked}
+                      onRowDragMove={onRowDragMove}
+                      onRowDragLeave={onRowDragLeave}
+                      onRowDragEnd={onRowDragEnd}
                       // onSelectionChanged={onSelectionChanged}
                       // onCellValueChanged={onCellValueChanged}
                       // onFirstDataRendered={firstDataRenderedHandler}
