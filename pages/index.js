@@ -6,7 +6,7 @@ import { AgGridReact } from "ag-grid-react";
 import defaultColumnDef from "./../components/defaultColumnDef";
 import { sideBar } from "./../components/Sidebar";
 import { flatten } from "../utils/flatten";
-import { data } from "./../utils/data";
+import { data, mappedData, newData } from "./../utils/data";
 const cellClassRules = {
   "hover-over": (params) => {
     return params.node === potentialParent;
@@ -50,14 +50,16 @@ const arePathsEqual = (path1, path2) => {
 };
 
 const setPotentialParentForNode = (api, overNode) => {
+  console.log
   let newPotentialParent;
   if (overNode) {
+    console.log(overNode,'sad')
     newPotentialParent =
-      overNode.data.type === "folder"
+      overNode.data?.type === "folder"
         ? // if over a folder, we take the immediate row
-          overNode
+        overNode
         : // if over a file, we take the parent row (which will be a folder)
-          overNode.parent;
+        overNode.parent;
   } else {
     newPotentialParent = null;
   }
@@ -93,7 +95,8 @@ const refreshRows = (api, rowsToRefresh) => {
 
 export default function Home() {
   const gridRef = useRef();
-  const [rowData, setRowData] = useState(() => data);
+  console.log(mappedData);
+  const [rowData, setRowData] = useState(() => mappedData);
   const [tags, setTags] = useState([]);
   const [show, setShow] = useState(false);
 
@@ -282,7 +285,7 @@ export default function Home() {
       // clear node to highlight
       setPotentialParentForNode(event.api, null);
     },
-    [potentialParent]
+    []
   );
   const getDataPath = useMemo(() => {
     return (data) => {
@@ -340,7 +343,7 @@ export default function Home() {
                           "form-control" +
                           ((formik.touched?.folderName &&
                             formik.errors?.folderName) ||
-                          !formik.values.uniqueResponse?.status
+                            !formik.values.uniqueResponse?.status
                             ? " is-invalid"
                             : "")
                         }
@@ -374,7 +377,7 @@ export default function Home() {
                         "form-control" +
                         ((formik.touched?.datasetName &&
                           formik.errors?.datasetName) ||
-                        !formik.values.uniqueResponse?.status
+                          !formik.values.uniqueResponse?.status
                           ? " is-invalid"
                           : "")
                       }
