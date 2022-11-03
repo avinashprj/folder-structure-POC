@@ -7,6 +7,7 @@ import defaultColumnDef from "./../components/defaultColumnDef";
 import { sideBar } from "./../components/Sidebar";
 import { flatten } from "../utils/flatten";
 import { data, mappedData, newData } from "./../utils/data";
+import Image from "next/image";
 const cellClassRules = {
   "hover-over": (params) => {
     return params.node === potentialParent;
@@ -50,10 +51,10 @@ const arePathsEqual = (path1, path2) => {
 };
 
 const setPotentialParentForNode = (api, overNode) => {
-  console.log
+  console.log;
   let newPotentialParent;
   if (overNode) {
-    console.log(overNode,'sad')
+    console.log(overNode, 'sad');
     newPotentialParent =
       overNode.data?.type === "folder"
         ? // if over a folder, we take the immediate row
@@ -225,22 +226,59 @@ export default function Home() {
 
   const [columnDefs, setColumnDefs] = useState([
     // we're using the auto group column by default!
-    { field: "description", cellClassRules: cellClassRules },
+    { field: "description", cellClassRules: cellClassRules, },
     { field: "product", cellClassRules: cellClassRules },
     { field: "baseDataLevel", cellClassRules: cellClassRules },
   ]);
   const autoGroupColumnDef = {
     headerName: "Folder Name",
     rowDrag: true,
+
     cellRendererParams: {
       suppressCount: true,
+      innerRendererFramework: (params) => {
+        console.log(params, 'params');
+        if (params.data.type === 'folder') {
+          return <div><span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-folder" viewBox="0 0 16 16">
+          <path d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.672a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 9.828 3h3.982a2 2 0 0 1 1.992 2.181l-.637 7A2 2 0 0 1 13.174 14H2.826a2 2 0 0 1-1.991-1.819l-.637-7a1.99 1.99 0 0 1 .342-1.31zM2.19 4a1 1 0 0 0-.996 1.09l.637 7a1 1 0 0 0 .995.91h10.348a1 1 0 0 0 .995-.91l.637-7A1 1 0 0 0 13.81 4H2.19zm4.69-1.707A1 1 0 0 0 6.172 2H2.5a1 1 0 0 0-1 .981l.006.139C1.72 3.042 1.95 3 2.19 3h5.396l-.707-.707z" />
+        </svg>
+        </span>
+            &nbsp;{params.value}</div>;
+        }
+        else {
+          return params.value;
+        }
+      },
+      // innerRenderer: (params) => {
+      //   if (params.value) {
+      //     let image = document.createElement('img');
+      //     image.src = `https://www.ag-grid.com/images/sun.png`;
+      //     image.alt = 'image';
+      //     image.width = '15';
+      //     image.height = '10';
+      //     return `<div><h1>${params.value}</h1></div> `;
+      //   }
+      //   else {
+      //     return '';
+      //   }
+      // }
+
     },
+
+
     cellClassRules: {
       "hover-over": (params) => {
         return params.node === potentialParent;
       },
     },
+
+    // cellRenderer: (params) => {
+    //   console.log(paramas)
+    //   return params.value;
+    // },
   };
+
 
   const onRowDragMove = useCallback((event) => {
     setPotentialParentForNode(event.api, event.overNode);
@@ -298,6 +336,9 @@ export default function Home() {
     setGridApi(params.api);
   };
   const onRowClicked = (params) => {
+    console.log(params);
+  };
+  const onCellValueChanged = (params) => {
     console.log(params);
   };
 
@@ -544,7 +585,7 @@ export default function Home() {
                       onRowDragLeave={onRowDragLeave}
                       onRowDragEnd={onRowDragEnd}
                       // onSelectionChanged={onSelectionChanged}
-                      // onCellValueChanged={onCellValueChanged}
+                      rowDataChanged={onCellValueChanged}
                       // onFirstDataRendered={firstDataRenderedHandler}
                       // onModelUpdated={rowCountHandler}
                       sideBar={sideBar}
